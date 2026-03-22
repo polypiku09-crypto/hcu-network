@@ -998,8 +998,8 @@ import { getFirestore, doc, setDoc, deleteDoc,
          onSnapshot, collection, getDoc }         from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 import { getAuth, signInWithEmailAndPassword,
          signOut, onAuthStateChanged }            from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
-import { getStorage, ref, uploadString,
-         getDownloadURL, deleteObject }           from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js';
+
+const IMGBB_KEY = 'd962b3a8e1e839148b4f5fc29e2f85a0';
 
 /* ── CONFIG ── */
 const firebaseConfig = {
@@ -1015,7 +1015,6 @@ const SHEETS_URL = "https://script.google.com/macros/s/AKfycbwQ5lI0LKAFix0jXA91k
 const app     = initializeApp(firebaseConfig);
 const db      = getFirestore(app);
 const auth    = getAuth(app);
-const storage = getStorage(app);
 
 /* ── STATE ── */
 let isAdmin = false;
@@ -1081,19 +1080,22 @@ window.closeLoginModal = function() {
   document.getElementById('loginModal').classList.remove('show');
 };
 
-/* ── STORAGE: UPLOAD IMAGE ── */
-async function uploadImage(path, base64data) {
+/* ── IMGBB: UPLOAD IMAGE ── */
+async function uploadImage(base64data) {
   if(!base64data || !base64data.startsWith('data:')) return '';
   try {
-    var storageRef = ref(storage, path);
-    await uploadString(storageRef, base64data, 'data_url');
-    var url = await getDownloadURL(storageRef);
-    return url;
+    // ตัด data:image/xxx;base64, ออก
+    var base64 = base64data.split(',')[1];
+    var formData = new FormData();
+    formData.append('key', IMGBB_KEY);
+    formData.append('image', base64);
+    var res = await fetch('https://api.imgbb.com/1/upload', {
+      method: 'POST', body: formData
+    });
+    var json = await res.json();
+    if(json.success) return json.data.url;
+    return '';
   } catch(e) { console.warn('uploadImage:', e.message); return ''; }
-}
-
-async function deleteImage(path) {
-  try { await deleteObject(ref(storage, path)); } catch(e) {}
 }
 
 /* ── FIRESTORE: SAVE DOT ── */
@@ -1102,14 +1104,12 @@ window.fbSaveDot = async function(building, floor, dot) {
   try {
     var path = building+'__'+floor+'__'+dot.id;
     var dotData = Object.assign({}, dot, {building:building, floor:floor});
-
-    // อัปโหลดรูป Router ขึ้น Storage (ถ้ามี)
+    // อัปโหลดรูป Router ขึ้น ImgBB (ถ้าเป็น base64)
     if(dotData.photo && dotData.photo.startsWith('data:')) {
-      flashFB('⏳ กำลังอัปโหลดรูป...');
-      var photoURL = await uploadImage('routers/'+path+'.jpg', dotData.photo);
-      dotData.photo = photoURL; // เก็บ URL แทน base64
+      flashFB('⏳ กำลังอัปโหลดรูป Router...');
+      var photoURL = await uploadImage(dotData.photo);
+      if(photoURL) dotData.photo = photoURL;
     }
-
     await setDoc(doc(db, 'dots', path), dotData);
     flashFB('☁️ ซิงค์จุด "'+dot.id+'" แล้ว');
   } catch(e) { flashFB('บันทึกไม่สำเร็จ: '+e.message,'#ef5350'); }
@@ -1121,7 +1121,6 @@ window.fbDeleteDot = async function(building, floor, dotId) {
   try {
     var path = building+'__'+floor+'__'+dotId;
     await deleteDoc(doc(db, 'dots', path));
-    await deleteImage('routers/'+path+'.jpg');
     flashFB('☁️ ลบจุด "'+dotId+'" แล้ว');
   } catch(e) { flashFB('ลบไม่สำเร็จ: '+e.message,'#ef5350'); }
 };
@@ -1136,14 +1135,13 @@ window.fbSaveStructure = async function() {
       for(var f of Object.keys(DB.buildings[b].floors||{})){
         var fd = DB.buildings[b].floors[f];
         var mapURL = '';
-        // อัปโหลดรูปแผนผังขึ้น Storage ถ้าเป็น base64
+        // อัปโหลดรูปแผนผังขึ้น ImgBB ถ้าเป็น base64
         if(fd && fd.img && fd.img.startsWith('data:')){
           flashFB('⏳ กำลังอัปโหลดรูปแผนผัง '+b+' '+f+'...');
-          mapURL = await uploadImage('maps/'+b+'__'+f+'.jpg', fd.img);
-          // แทนที่ base64 ด้วย URL
-          DB.buildings[b].floors[f].img = mapURL;
+          mapURL = await uploadImage(fd.img);
+          if(mapURL) DB.buildings[b].floors[f].img = mapURL;
         } else if(fd && fd.img) {
-          mapURL = fd.img; // URL อยู่แล้ว
+          mapURL = fd.img;
         }
         structure[b].floors[f] = { mapURL: mapURL };
       }
