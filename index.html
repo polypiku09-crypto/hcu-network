@@ -448,6 +448,9 @@ var DB={buildings:{}};
 var curB='',curF='';
 var curDotId=null,tempDot=null,isNew=false;
 var appMode='view',dragging=null,dOff={x:0,y:0};
+// expose globals for Firebase module
+window.DB=DB; window.getCurB=function(){return curB;}; window.getCurF=function(){return curF;};
+window.setCurB=function(v){curB=v;}; window.setCurF=function(v){curF=v;};
 var dotColor='#c62828',dotSize=26,dotSig=3;
 var currentPhoto=''; // เก็บรูปปัจจุบันแยกต่างหาก
 var popDotId=null;
@@ -1231,15 +1234,18 @@ window.fbLoadStructure = async function() {
     });
     // auto-select first building/floor
     var bkeys = Object.keys(DB.buildings);
-    if(bkeys.length && !curB){
-      curB = bkeys[0];
-      var fkeys = Object.keys(DB.buildings[curB].floors||{});
-      if(fkeys.length) curF = fkeys[0];
+    var curBval = window.getCurB ? window.getCurB() : '';
+    if(bkeys.length && !curBval){
+      var firstB = bkeys[0];
+      if(window.setCurB) window.setCurB(firstB);
+      var fkeys = Object.keys(DB.buildings[firstB].floors||{});
+      if(fkeys.length && window.setCurF) window.setCurF(fkeys[0]);
     }
     if(typeof rebuildCddB==='function') rebuildCddB();
     if(typeof renderFloorList==='function') renderFloorList();
     if(typeof loadFloorView==='function') loadFloorView();
     if(typeof updateUI==='function') updateUI();
+    if(typeof updateAdminUI==='function') updateAdminUI();
     flashFB('☁️ โหลดข้อมูลจาก Firebase แล้ว');
   } catch(e) { console.warn('loadStructure:', e.message); }
 };
@@ -1265,9 +1271,21 @@ window.fbStartListen = function() {
           if(typeof renderDot==='function') renderDot(d);
         }
       }
-      if(typeof updateUI==='function') updateUI();
       if(typeof rebuildCddB==='function') rebuildCddB();
       if(typeof renderFloorList==='function') renderFloorList();
+      if(typeof updateUI==='function') updateUI();
+      // auto-select if nothing selected yet
+      var _bkeys = Object.keys(DB.buildings);
+      var _curB = window.getCurB ? window.getCurB() : '';
+      if(_bkeys.length && !_curB){
+        if(window.setCurB) window.setCurB(_bkeys[0]);
+        var _fkeys = Object.keys(DB.buildings[_bkeys[0]].floors||{});
+        if(_fkeys.length && window.setCurF) window.setCurF(_fkeys[0]);
+        if(typeof rebuildCddB==='function') rebuildCddB();
+        if(typeof renderFloorList==='function') renderFloorList();
+        if(typeof loadFloorView==='function') loadFloorView();
+        if(typeof updateUI==='function') updateUI();
+      }
     });
   });
 };
