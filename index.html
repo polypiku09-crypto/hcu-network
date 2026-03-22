@@ -622,11 +622,13 @@ function renderFloorList(){
     var item=document.createElement('div');
     item.className='floor-item'+(f===curF?' active':'');
     var dotCount=Object.keys(floors[f].dots||{}).length;
+    var adminBtns = window._isAdmin ?
+      '<button class="fi-edit" title="แก้ชื่อ">✏️</button>'+
+      '<button class="fi-del" title="ลบ">✕</button>' : '';
     item.innerHTML=
       '<span class="fi-name">'+f+'</span>'+
       (dotCount?'<span class="dot-badge">'+dotCount+'</span>':'')+
-      '<button class="fi-edit" title="แก้ชื่อ">✏️</button>'+
-      '<button class="fi-del" title="ลบ">✕</button>';
+      adminBtns;
     item.querySelector('.fi-edit').onclick=function(e){
       e.stopPropagation();
       showImo('✏️','แก้ชื่อชั้น','ชื่อใหม่','',f,function(n){
@@ -712,7 +714,7 @@ function setMode(m){
 /* ── CLICK MAP ───────────────────────────── */
 document.getElementById('mapWrap').addEventListener('click',function(e){
   if(appMode!=='add') return;
-  if(!isAdmin){ flash('กรุณา Login Admin ก่อน','#ef5350'); return; }
+  if(!window._isAdmin){ flash('⛔ เฉพาะ Admin เท่านั้น','#e53935'); return; }
   if(e.target.closest('.hotspot')) return;
   var r=this.getBoundingClientRect();
   var lp=parseFloat(((e.clientX-r.left)/r.width*100).toFixed(2));
@@ -789,6 +791,8 @@ function showPopup(dot,ev){
   if(dot.note){document.getElementById('popNote').textContent=dot.note;document.getElementById('popNoteWrap').style.display='block';}
   else document.getElementById('popNoteWrap').style.display='none';
   var p=document.getElementById('popup'); p.style.display='block';
+  // ซ่อนปุ่มแก้ไขถ้าไม่ใช่ admin
+  document.querySelector('.pb-edit').style.display = window._isAdmin ? '' : 'none';
   var mr=document.getElementById('mapWrap').getBoundingClientRect();
   var px=mr.left+(dot.left/100)*mr.width, py=mr.top+(dot.top/100)*mr.height;
   p.style.left=Math.max(10,Math.min(px+22,window.innerWidth-290))+'px';
@@ -811,6 +815,7 @@ function repFromPopup(){
 
 /* ── PANEL ───────────────────────────────── */
 function openPanel(dot){
+  if(!window._isAdmin){ flash('⛔ เฉพาะ Admin เท่านั้น','#e53935'); return; }
   tempDot=dot;
   currentPhoto=dot.photo||'';
   var fd=getFloor(); isNew=!(dot.id&&fd&&fd.dots&&fd.dots[dot.id]); curDotId=dot.id||null;
@@ -1026,12 +1031,15 @@ const auth    = getAuth(app);
 
 /* ── STATE ── */
 let isAdmin = false;
+window._isAdmin = false;
 let unsubscribe = null;
 
 /* ── AUTH STATE ── */
 onAuthStateChanged(auth, function(user) {
   isAdmin = !!user;
+  window._isAdmin = isAdmin;
   updateAdminUI();
+  if(typeof renderFloorList==='function') renderFloorList();
   if (user) {
     document.getElementById('loginBtn').style.display  = 'none';
     document.getElementById('logoutBtn').style.display = 'flex';
