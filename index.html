@@ -681,7 +681,10 @@ function loadMap(e){
       cv.width=w;cv.height=h;
       cv.getContext('2d').drawImage(img,0,0,w,h);
       DB.buildings[curB].floors[curF].img=cv.toDataURL('image/jpeg',.85);
-      loadFloorView(); updateUI(); flash('✅ โหลดรูปแผนผังแล้ว');
+      loadFloorView(); updateUI();
+      // ซิงค์โครงสร้างขึ้น Firebase (รวมรูปแผนผัง)
+      if(typeof fbSaveStructure==='function') fbSaveStructure();
+      flash('✅ โหลดรูปแผนผังแล้ว');
     };
     img.src=ev.target.result;
   };
@@ -992,9 +995,11 @@ buildSwatches(); updateSig(3); updateDotPrev(); updateUI();
 <script type="module">
 import { initializeApp }                          from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
 import { getFirestore, doc, setDoc, deleteDoc,
-         onSnapshot, collection }                 from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+         onSnapshot, collection, getDoc }         from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 import { getAuth, signInWithEmailAndPassword,
          signOut, onAuthStateChanged }            from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
+import { getStorage, ref, uploadString,
+         getDownloadURL, deleteObject }           from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js';
 
 /* ── CONFIG ── */
 const firebaseConfig = {
@@ -1007,9 +1012,10 @@ const firebaseConfig = {
 };
 const SHEETS_URL = "https://script.google.com/macros/s/AKfycbwQ5lI0LKAFix0jXA91ke50f3N1K4iky26lVhz6U263gOwL8zZW18NEBRylZwdyHdsa/exec";
 
-const app  = initializeApp(firebaseConfig);
-const db   = getFirestore(app);
-const auth = getAuth(app);
+const app     = initializeApp(firebaseConfig);
+const db      = getFirestore(app);
+const auth    = getAuth(app);
+const storage = getStorage(app);
 
 /* ── STATE ── */
 let isAdmin = false;
@@ -1075,19 +1081,36 @@ window.closeLoginModal = function() {
   document.getElementById('loginModal').classList.remove('show');
 };
 
+/* ── STORAGE: UPLOAD IMAGE ── */
+async function uploadImage(path, base64data) {
+  if(!base64data || !base64data.startsWith('data:')) return '';
+  try {
+    var storageRef = ref(storage, path);
+    await uploadString(storageRef, base64data, 'data_url');
+    var url = await getDownloadURL(storageRef);
+    return url;
+  } catch(e) { console.warn('uploadImage:', e.message); return ''; }
+}
+
+async function deleteImage(path) {
+  try { await deleteObject(ref(storage, path)); } catch(e) {}
+}
+
 /* ── FIRESTORE: SAVE DOT ── */
 window.fbSaveDot = async function(building, floor, dot) {
   if(!isAdmin) return;
   try {
     var path = building+'__'+floor+'__'+dot.id;
-    // strip photo from Firestore (too large) — store separately if needed
-    var dotData = Object.assign({}, dot, {building: building, floor: floor});
-    // photo เก็บแยก localStorage เพื่อไม่ให้ Firestore เกิน quota
-    var photoData = dotData.photo || '';
-    dotData.photo = ''; // ไม่เก็บรูปใน Firestore
+    var dotData = Object.assign({}, dot, {building:building, floor:floor});
+
+    // อัปโหลดรูป Router ขึ้น Storage (ถ้ามี)
+    if(dotData.photo && dotData.photo.startsWith('data:')) {
+      flashFB('⏳ กำลังอัปโหลดรูป...');
+      var photoURL = await uploadImage('routers/'+path+'.jpg', dotData.photo);
+      dotData.photo = photoURL; // เก็บ URL แทน base64
+    }
+
     await setDoc(doc(db, 'dots', path), dotData);
-    // เก็บรูปใน localStorage
-    if(photoData) localStorage.setItem('photo__'+path, photoData);
     flashFB('☁️ ซิงค์จุด "'+dot.id+'" แล้ว');
   } catch(e) { flashFB('บันทึกไม่สำเร็จ: '+e.message,'#ef5350'); }
 };
@@ -1098,7 +1121,7 @@ window.fbDeleteDot = async function(building, floor, dotId) {
   try {
     var path = building+'__'+floor+'__'+dotId;
     await deleteDoc(doc(db, 'dots', path));
-    localStorage.removeItem('photo__'+path);
+    await deleteImage('routers/'+path+'.jpg');
     flashFB('☁️ ลบจุด "'+dotId+'" แล้ว');
   } catch(e) { flashFB('ลบไม่สำเร็จ: '+e.message,'#ef5350'); }
 };
@@ -1107,16 +1130,61 @@ window.fbDeleteDot = async function(building, floor, dotId) {
 window.fbSaveStructure = async function() {
   if(!isAdmin) return;
   try {
-    // เก็บโครงสร้างอาคาร/ชั้น (ไม่รวมรูปแผนผัง)
     var structure = {};
-    Object.keys(DB.buildings).forEach(function(b){
+    for(var b of Object.keys(DB.buildings)){
       structure[b] = { floors: {} };
-      Object.keys(DB.buildings[b].floors||{}).forEach(function(f){
-        structure[b].floors[f] = true;
+      for(var f of Object.keys(DB.buildings[b].floors||{})){
+        var fd = DB.buildings[b].floors[f];
+        var mapURL = '';
+        // อัปโหลดรูปแผนผังขึ้น Storage ถ้าเป็น base64
+        if(fd && fd.img && fd.img.startsWith('data:')){
+          flashFB('⏳ กำลังอัปโหลดรูปแผนผัง '+b+' '+f+'...');
+          mapURL = await uploadImage('maps/'+b+'__'+f+'.jpg', fd.img);
+          // แทนที่ base64 ด้วย URL
+          DB.buildings[b].floors[f].img = mapURL;
+        } else if(fd && fd.img) {
+          mapURL = fd.img; // URL อยู่แล้ว
+        }
+        structure[b].floors[f] = { mapURL: mapURL };
+      }
+    }
+    await setDoc(doc(db, 'meta', 'structure'), structure);
+    flashFB('☁️ บันทึกโครงสร้างแล้ว');
+  } catch(e) { console.warn('saveStructure:', e.message); }
+};
+
+/* ── FIRESTORE: LOAD STRUCTURE ON START ── */
+window.fbLoadStructure = async function() {
+  try {
+    var snap = await getDoc(doc(db, 'meta', 'structure'));
+    if(!snap.exists()) return;
+    var structure = snap.data();
+    Object.keys(structure).forEach(function(b){
+      if(!DB.buildings[b]) DB.buildings[b] = { floors:{} };
+      var floors = structure[b].floors || {};
+      Object.keys(floors).forEach(function(f){
+        if(!DB.buildings[b].floors[f]){
+          var mapURL = (floors[f] && floors[f].mapURL) ? floors[f].mapURL : '';
+          DB.buildings[b].floors[f] = { img: mapURL, dots:{} };
+        } else if(floors[f] && floors[f].mapURL && !DB.buildings[b].floors[f].img) {
+          // อัปเดต URL ถ้ายังไม่มีรูป
+          DB.buildings[b].floors[f].img = floors[f].mapURL;
+        }
       });
     });
-    await setDoc(doc(db, 'meta', 'structure'), structure);
-  } catch(e) { console.warn('saveStructure:', e.message); }
+    // auto-select first building/floor
+    var bkeys = Object.keys(DB.buildings);
+    if(bkeys.length && !curB){
+      curB = bkeys[0];
+      var fkeys = Object.keys(DB.buildings[curB].floors||{});
+      if(fkeys.length) curF = fkeys[0];
+    }
+    if(typeof rebuildCddB==='function') rebuildCddB();
+    if(typeof renderFloorList==='function') renderFloorList();
+    if(typeof loadFloorView==='function') loadFloorView();
+    if(typeof updateUI==='function') updateUI();
+    flashFB('☁️ โหลดข้อมูลจาก Firebase แล้ว');
+  } catch(e) { console.warn('loadStructure:', e.message); }
 };
 
 /* ── FIRESTORE: REAL-TIME LISTENER ── */
@@ -1126,10 +1194,7 @@ window.fbStartListen = function() {
     snapshot.docChanges().forEach(function(change) {
       var d = change.doc.data();
       if(!d.building||!d.floor||!d.id) return;
-      // restore photo from localStorage
-      var path = d.building+'__'+d.floor+'__'+d.id;
-      d.photo = localStorage.getItem('photo__'+path)||'';
-      // ensure structure exists
+      // photo เป็น URL จาก Storage แล้ว ใช้ได้เลย
       if(!DB.buildings[d.building]) DB.buildings[d.building]={floors:{}};
       if(!DB.buildings[d.building].floors[d.floor]) DB.buildings[d.building].floors[d.floor]={img:'',dots:{}};
       if(change.type==='removed'){
@@ -1209,6 +1274,7 @@ function flashFB(msg,c){
 /* ── START ── */
 fbStartListen();
 updateAdminUI();
+fbLoadStructure();
 </script>
 
 <!-- LOGIN MODAL -->
