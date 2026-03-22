@@ -258,7 +258,7 @@ input[type=color]{width:24px;height:21px;border:1.5px solid var(--bd);border-rad
       <div class="cdd-list" id="cddBList"></div>
     </div>
     <div class="mrow">
-      <div class="mb2" onclick="addBuilding()">+ เพิ่ม</div>
+      <div class="mb2" id="btnAddB" onclick="addBuilding()">+ เพิ่ม</div>
       <div class="mb2" id="btnRenB" onclick="renameBuilding()">✏️</div>
       <div class="mb2 danger" id="btnDelB" onclick="deleteBuilding()">🗑</div>
     </div>
@@ -1071,9 +1071,11 @@ function updateAdminUI() {
   if(mbA) mbA.style.display = show;
   if(mbM) mbM.style.display = show;
 
-  // ── ปุ่มแก้ชื่อ/ลบ อาคาร ──
+  // ── ปุ่มแก้ชื่อ/ลบ/เพิ่ม อาคาร ──
+  var btnAddB = document.getElementById('btnAddB');
   var btnRenB = document.getElementById('btnRenB');
   var btnDelB = document.getElementById('btnDelB');
+  if(btnAddB) btnAddB.style.display = show;
   if(btnRenB) btnRenB.style.display = show;
   if(btnDelB) btnDelB.style.display = show;
 
