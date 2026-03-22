@@ -583,6 +583,7 @@ function setDisabled(id,dis){
 
 /* ── BUILDING ────────────────────────────── */
 function addBuilding(){
+  if(!window._isAdmin){ flashFB('⛔ เฉพาะ Admin เท่านั้น','#e53935'); return; }
   showImo('🏢','เพิ่มอาคาร','ชื่ออาคาร','เช่น อาคาร 2','',function(n){
     if(!n) return;
     if(DB.buildings[n]){flash('มีอาคาร "'+n+'" แล้ว','#ef5350');return;}
@@ -593,6 +594,7 @@ function addBuilding(){
   });
 }
 function renameBuilding(){
+  if(!window._isAdmin){ flashFB('⛔ เฉพาะ Admin เท่านั้น','#e53935'); return; }
   if(!curB) return;
   showImo('✏️','แก้ชื่ออาคาร','ชื่อใหม่','',curB,function(n){
     if(!n||n===curB) return;
@@ -604,6 +606,7 @@ function renameBuilding(){
   });
 }
 function deleteBuilding(){
+  if(!window._isAdmin){ flashFB('⛔ เฉพาะ Admin เท่านั้น','#e53935'); return; }
   if(!curB) return;
   showCfm('ลบอาคาร "'+curB+'" และข้อมูลทั้งหมด ใช่ไหม?',function(){
     delete DB.buildings[curB]; curB=''; curF='';
@@ -659,6 +662,7 @@ function renderFloorList(){
 }
 
 function addFloor(){
+  if(!window._isAdmin){ flashFB('⛔ เฉพาะ Admin เท่านั้น','#e53935'); return; }
   if(!curB){flash('กรุณาเลือกอาคารก่อน','#ef5350');return;}
   showImo('📐','เพิ่มชั้น','ชื่อชั้น','เช่น ชั้น 1','ชั้น 1',function(n){
     if(!n) return;
@@ -896,6 +900,7 @@ function updateDotPrev(){
   p.style.background='radial-gradient(circle at 35% 35%,'+lighten(dotColor)+','+dotColor+')';
 }
 function saveDot(){
+  if(!window._isAdmin){ flashFB('⛔ เฉพาะ Admin เท่านั้น','#e53935'); return; }
   if(!curB||!curF){flash('กรุณาเลือกอาคารและชั้นก่อน','#ef5350');return;}
   var id=document.getElementById('fId').value.trim();
   if(!id){flash('กรุณาระบุรหัส/ชื่อจุด','#ef5350');return;}
@@ -929,6 +934,7 @@ function saveDot(){
   flash('💾 บันทึกจุด "'+id+'" แล้ว');
 }
 function delDot(){
+  if(!window._isAdmin){ flashFB('⛔ เฉพาะ Admin เท่านั้น','#e53935'); return; }
   if(isNew){closePanel();return;}
   if(!curDotId){closePanel();return;}
   showCfm('ลบจุด "'+curDotId+'" ใช่ไหม?',function(){
@@ -1089,6 +1095,27 @@ function updateAdminUI() {
 };
 window.fbLogout = function() {
   signOut(auth).then(function(){ flashFB('ออกจากระบบแล้ว'); });
+};
+
+/* ── LOGIN ── */
+window.fbLogin = function() {
+  var em = document.getElementById('loginEmail').value.trim();
+  var pw = document.getElementById('loginPass').value;
+  if(!em||!pw){ flashFB('กรุณากรอก Email และ Password','#ef5350'); return; }
+  var btn = document.querySelector('#loginModal .mf-ok');
+  btn.textContent = '⏳ กำลัง Login...'; btn.disabled = true;
+  signInWithEmailAndPassword(auth, em, pw)
+    .then(function(){
+      document.getElementById('loginModal').classList.remove('show');
+      document.getElementById('loginEmail').value = '';
+      document.getElementById('loginPass').value = '';
+    })
+    .catch(function(e){
+      flashFB('❌ Login ไม่สำเร็จ — กรุณาตรวจสอบ Email/Password ใหม่','#e53935');
+    })
+    .finally(function(){
+      btn.textContent = '🔐 เข้าสู่ระบบ'; btn.disabled = false;
+    });
 };
 window.openLoginModal = function() {
   document.getElementById('loginModal').classList.add('show');
