@@ -1059,39 +1059,42 @@ onAuthStateChanged(auth, function(user) {
 function updateAdminUI() {
   var show = isAdmin ? '' : 'none';
 
-  // mode bar — ซ่อนปุ่มเพิ่มจุดและย้ายสำหรับ guest
+  // ── โหมดบนแผนผัง (เพิ่มจุด/ย้าย) ──
   var mbA = document.getElementById('mbA');
   var mbM = document.getElementById('mbM');
   if(mbA) mbA.style.display = show;
   if(mbM) mbM.style.display = show;
 
-  // sidebar — ซ่อนปุ่มแก้ชื่อ/ลบ อาคาร
-  ['btnRenB','btnDelB'].forEach(function(id){
-    var el=document.getElementById(id);
-    if(el) el.style.display = show;
-  });
+  // ── ปุ่มแก้ชื่อ/ลบ อาคาร ──
+  var btnRenB = document.getElementById('btnRenB');
+  var btnDelB = document.getElementById('btnDelB');
+  if(btnRenB) btnRenB.style.display = show;
+  if(btnDelB) btnDelB.style.display = show;
 
-  // ซ่อนปุ่มเพิ่มชั้น
+  // ── ปุ่มเพิ่มชั้น ──
   var addFloorBtn = document.querySelector('.add-floor-btn');
   if(addFloorBtn) addFloorBtn.style.display = show;
 
-  // ซ่อนปุ่มลบ/แก้ชั้นใน floor list
+  // ── ปุ่มลบ/แก้ชั้นใน floor list ──
   document.querySelectorAll('.fi-del, .fi-edit').forEach(function(el){
     el.style.display = show;
   });
 
-  // ซ่อน right panel ปุ่ม save/del
+  // ── right panel ปุ่ม save/del ──
   var rpft = document.querySelector('.rp-ft');
   if(rpft) rpft.style.display = isAdmin ? 'flex' : 'none';
 
-  // ซ่อนปุ่มแก้ไขใน popup
+  // ── ปุ่มแก้ไขใน popup ──
   var pbEdit = document.querySelector('.pb-edit');
   if(pbEdit) pbEdit.style.display = show;
 
-  // ถ้า guest อยู่ในโหมด add/move → reset เป็น view
+  // ── ถ้า guest อยู่ในโหมด add/move ให้ reset ──
   if(!isAdmin && appMode && (appMode==='add'||appMode==='move')) {
     setMode('view');
   }
+
+  // ── re-render floor list เพื่ออัปเดตปุ่ม edit/del ──
+  if(typeof renderFloorList === 'function') renderFloorList();
 };
 window.fbLogout = function() {
   signOut(auth).then(function(){ flashFB('ออกจากระบบแล้ว'); });
@@ -1111,7 +1114,12 @@ window.fbLogin = function() {
       document.getElementById('loginPass').value = '';
     })
     .catch(function(e){
-      flashFB('❌ Login ไม่สำเร็จ — กรุณาตรวจสอบ Email/Password ใหม่','#e53935');
+      // แสดง error ใต้ช่องกรอก
+      var errEl = document.getElementById('loginErr');
+      if(errEl){
+        errEl.textContent = '❌ Email หรือ Password ไม่ถูกต้อง กรุณาลองใหม่';
+        errEl.style.display = 'block';
+      }
     })
     .finally(function(){
       btn.textContent = '🔐 เข้าสู่ระบบ'; btn.disabled = false;
@@ -1119,6 +1127,9 @@ window.fbLogin = function() {
 };
 window.openLoginModal = function() {
   document.getElementById('loginModal').classList.add('show');
+  var errEl = document.getElementById('loginErr');
+  if(errEl) errEl.style.display = 'none';
+  setTimeout(function(){ document.getElementById('loginEmail').focus(); }, 100);
 };
 window.closeLoginModal = function() {
   document.getElementById('loginModal').classList.remove('show');
@@ -1330,6 +1341,7 @@ fbLoadStructure();
     <div class="mbody">
       <div class="login-field"><label>Email</label><input type="email" id="loginEmail" placeholder="admin@hcu.ac.th" onkeydown="if(event.key==='Enter')fbLogin()"/></div>
       <div class="login-field"><label>Password</label><input type="password" id="loginPass" placeholder="รหัสผ่าน" onkeydown="if(event.key==='Enter')fbLogin()"/></div>
+      <div id="loginErr" style="display:none;background:#ffebee;color:#c62828;border-radius:7px;padding:8px 12px;font-size:.8rem;font-weight:600;margin-top:4px;">❌ Email หรือ Password ไม่ถูกต้อง</div>
     </div>
     <div class="mfoot">
       <button class="mf-ok" onclick="fbLogin()">🔐 เข้าสู่ระบบ</button>
