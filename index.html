@@ -712,6 +712,7 @@ function setMode(m){
 /* ── CLICK MAP ───────────────────────────── */
 document.getElementById('mapWrap').addEventListener('click',function(e){
   if(appMode!=='add') return;
+  if(!isAdmin){ flash('กรุณา Login Admin ก่อน','#ef5350'); return; }
   if(e.target.closest('.hotspot')) return;
   var r=this.getBoundingClientRect();
   var lp=parseFloat(((e.clientX-r.left)/r.width*100).toFixed(2));
@@ -736,6 +737,7 @@ function renderDot(dot){
     el=document.createElement('div'); el.className='hotspot'; el.id=eid; el.dataset.dotId=dot.id;
     var d=document.createElement('div'); d.className='hdot';
     var lbl=document.createElement('div'); lbl.className='hlbl'; lbl.textContent=dot.id;
+    lbl.style.display='none'; // ซ่อนป้ายชื่อใต้จุดถาวร
     el.appendChild(d); el.appendChild(lbl);
     el.addEventListener('mousedown',function(ev){
       ev.stopPropagation(); if(appMode!=='move') return;
@@ -783,7 +785,7 @@ function showPopup(dot,ev){
   var sv=dot.sig||3;
   for(var i=1;i<=5;i++){var sp=document.createElement('span');sp.style.height=hs[i-1]+'px';if(i<=sv){sp.style.background=sv>=4?'var(--grn2)':'var(--red2)';}else{sp.style.background='#ddd';}sb.appendChild(sp);}
   var pp=document.getElementById('popPhoto');
-  if(dot.photo&&dot.photo.startsWith('data:')){pp.src=dot.photo;pp.style.display='block';}else pp.style.display='none';
+  if(dot.photo&&(dot.photo.startsWith('data:')||dot.photo.startsWith('http'))){pp.src=dot.photo;pp.style.display='block';}else pp.style.display='none';
   if(dot.note){document.getElementById('popNote').textContent=dot.note;document.getElementById('popNoteWrap').style.display='block';}
   else document.getElementById('popNoteWrap').style.display='none';
   var p=document.getElementById('popup'); p.style.display='block';
@@ -870,7 +872,8 @@ function handlePhoto(e){
 function setPhotoUI(src){
   var pp=document.getElementById('photoPrev'),pu=document.getElementById('photoUp');
   var ic=pu.querySelector('.pu-ic'),tx=pu.querySelector('.pu-tx');
-  if(src&&src.startsWith('data:')){
+  // รองรับทั้ง base64 และ URL จาก ImgBB
+  if(src && (src.startsWith('data:') || src.startsWith('http'))){
     pp.src=src; pp.style.display='block'; ic.style.display='none';
     tx.textContent='เปลี่ยนรูป';
     tx.style.cssText='position:relative;z-index:2;background:rgba(0,0,0,.45);color:white;border-radius:5px;padding:2px 8px;font-size:.7rem;font-weight:600;';
@@ -893,7 +896,12 @@ function saveDot(){
   if(!curB||!curF){flash('กรุณาเลือกอาคารและชั้นก่อน','#ef5350');return;}
   var id=document.getElementById('fId').value.trim();
   if(!id){flash('กรุณาระบุรหัส/ชื่อจุด','#ef5350');return;}
-  var photo=currentPhoto||'';
+  var photo = currentPhoto || '';
+  // ถ้า currentPhoto ว่างแต่จุดเดิมมีรูป URL อยู่แล้ว ให้ใช้อันเดิม
+  if(!photo && !isNew && curDotId){
+    var fd0=getFloor();
+    if(fd0&&fd0.dots&&fd0.dots[curDotId]) photo=fd0.dots[curDotId].photo||'';
+  }
   var dot={id:id,room:document.getElementById('fRoom').value.trim(),
     brand:document.getElementById('fBrand').value.trim(),ip:document.getElementById('fIp').value.trim(),
     note:document.getElementById('fNote').value.trim(),
@@ -1036,28 +1044,44 @@ onAuthStateChanged(auth, function(user) {
 
 /* ── UPDATE UI BASED ON ROLE ── */
 function updateAdminUI() {
-  // ปุ่ม เพิ่มจุด / ย้าย / แก้ไข จะเห็นเฉพาะ admin
-  var adminEls = document.querySelectorAll('.admin-only');
-  adminEls.forEach(function(el) {
-    el.style.display = isAdmin ? '' : 'none';
-  });
-  // mode bar: ซ่อนปุ่ม เพิ่มจุด และ ย้าย สำหรับ guest
+  // mode bar
   document.getElementById('mbA').style.display = isAdmin ? '' : 'none';
   document.getElementById('mbM').style.display = isAdmin ? '' : 'none';
-  // sidebar add/edit/delete buttons
-  ['btnRenB','btnDelB'].forEach(function(id){
-    var el=document.getElementById(id);
-    if(el) el.style.display = isAdmin ? '' : 'none';
+
+  // sidebar — admin เห็นทุกอย่าง, guest เห็นแค่รายการอาคาร/ชั้น
+  var adminOnlySel = [
+    '#cddB .mrow',          // ปุ่ม + เพิ่ม แก้ชื่อ ลบ อาคาร
+    '.add-floor-btn',       // ปุ่ม + เพิ่มชั้น
+    '#mapSection',          // อัปโหลดแผนผัง
+    '.rp-ft',               // ปุ่ม บันทึก/ลบ ใน panel
+  ];
+  adminOnlySel.forEach(function(sel){
+    document.querySelectorAll(sel).forEach(function(el){
+      el.style.display = isAdmin ? '' : 'none';
+    });
   });
-  document.querySelectorAll('.mb2.danger, .fi-del, .fi-edit, .add-floor-btn, #mapSection').forEach(function(el){
+
+  // ปุ่ม แก้ชื่อ/ลบ ในรายการชั้น
+  document.querySelectorAll('.fi-del, .fi-edit').forEach(function(el){
     el.style.display = isAdmin ? '' : 'none';
   });
-  // right panel save/del
-  var rpft = document.querySelector('.rp-ft');
-  if(rpft) rpft.style.display = isAdmin ? 'flex' : 'none';
-  // ถ้าเป็น guest และอยู่ในโหมด add/move ให้ reset
-  if(!isAdmin && (window._appMode==='add'||window._appMode==='move')) {
-    if(typeof setMode === 'function') setMode('view');
+
+  // dropdown อาคาร — guest ดูได้แต่ปุ่มแก้ไขซ่อน
+  var mrow = document.querySelector('#cddB + .mrow') || document.querySelector('.mrow');
+  // ซ่อน mrow ทั้งหมดของ sidebar สำหรับ guest
+  document.querySelectorAll('.sb-scroll .mrow').forEach(function(el){
+    el.style.display = isAdmin ? 'flex' : 'none';
+  });
+
+  // right panel — guest ไม่เห็น panel เลย
+  if(!isAdmin){
+    closePanel();
+    document.getElementById('rpanel').style.display='none';
+  }
+
+  // reset mode ถ้า guest อยู่ใน add/move
+  if(!isAdmin && (appMode==='add'||appMode==='move')){
+    setMode('view');
   }
 }
 
@@ -1104,12 +1128,16 @@ window.fbSaveDot = async function(building, floor, dot) {
   try {
     var path = building+'__'+floor+'__'+dot.id;
     var dotData = Object.assign({}, dot, {building:building, floor:floor});
-    // อัปโหลดรูป Router ขึ้น ImgBB (ถ้าเป็น base64)
+    // อัปโหลดรูป Router ขึ้น ImgBB เฉพาะถ้าเป็น base64 ใหม่
     if(dotData.photo && dotData.photo.startsWith('data:')) {
       flashFB('⏳ กำลังอัปโหลดรูป Router...');
       var photoURL = await uploadImage(dotData.photo);
       if(photoURL) dotData.photo = photoURL;
+      // อัปเดต currentPhoto และ DB ด้วย URL ใหม่
+      if(typeof currentPhoto !== 'undefined') window.currentPhoto = photoURL;
+      var fd2=getFloor(); if(fd2&&fd2.dots&&fd2.dots[dotData.id]) fd2.dots[dotData.id].photo=photoURL;
     }
+    // ถ้าเป็น URL อยู่แล้ว → ใช้ต่อได้เลย ไม่ต้องอัปโหลดใหม่
     await setDoc(doc(db, 'dots', path), dotData);
     flashFB('☁️ ซิงค์จุด "'+dot.id+'" แล้ว');
   } catch(e) { flashFB('บันทึกไม่สำเร็จ: '+e.message,'#ef5350'); }
