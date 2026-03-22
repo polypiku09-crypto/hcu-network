@@ -714,7 +714,6 @@ function setMode(m){
 /* ── CLICK MAP ───────────────────────────── */
 document.getElementById('mapWrap').addEventListener('click',function(e){
   if(appMode!=='add') return;
-  if(!window._isAdmin){ flash('⛔ เฉพาะ Admin เท่านั้น','#e53935'); return; }
   if(e.target.closest('.hotspot')) return;
   var r=this.getBoundingClientRect();
   var lp=parseFloat(((e.clientX-r.left)/r.width*100).toFixed(2));
@@ -791,7 +790,7 @@ function showPopup(dot,ev){
   if(dot.note){document.getElementById('popNote').textContent=dot.note;document.getElementById('popNoteWrap').style.display='block';}
   else document.getElementById('popNoteWrap').style.display='none';
   var p=document.getElementById('popup'); p.style.display='block';
-  // ซ่อนปุ่มแก้ไขถ้าไม่ใช่ admin
+  // ซ่อนปุ่มแก้ไขสำหรับ guest
   document.querySelector('.pb-edit').style.display = window._isAdmin ? '' : 'none';
   var mr=document.getElementById('mapWrap').getBoundingClientRect();
   var px=mr.left+(dot.left/100)*mr.width, py=mr.top+(dot.top/100)*mr.height;
@@ -815,7 +814,6 @@ function repFromPopup(){
 
 /* ── PANEL ───────────────────────────────── */
 function openPanel(dot){
-  if(!window._isAdmin){ flash('⛔ เฉพาะ Admin เท่านั้น','#e53935'); return; }
   tempDot=dot;
   currentPhoto=dot.photo||'';
   var fd=getFloor(); isNew=!(dot.id&&fd&&fd.dots&&fd.dots[dot.id]); curDotId=dot.id||null;
@@ -1051,56 +1049,43 @@ onAuthStateChanged(auth, function(user) {
 });
 
 /* ── UPDATE UI BASED ON ROLE ── */
+/* ── UPDATE UI BASED ON ROLE ── */
 function updateAdminUI() {
-  // mode bar
-  document.getElementById('mbA').style.display = isAdmin ? '' : 'none';
-  document.getElementById('mbM').style.display = isAdmin ? '' : 'none';
+  var show = isAdmin ? '' : 'none';
 
-  // sidebar — admin เห็นทุกอย่าง, guest เห็นแค่รายการอาคาร/ชั้น
-  var adminOnlySel = [
-    '#cddB .mrow',          // ปุ่ม + เพิ่ม แก้ชื่อ ลบ อาคาร
-    '.add-floor-btn',       // ปุ่ม + เพิ่มชั้น
-    '#mapSection',          // อัปโหลดแผนผัง
-    '.rp-ft',               // ปุ่ม บันทึก/ลบ ใน panel
-  ];
-  adminOnlySel.forEach(function(sel){
-    document.querySelectorAll(sel).forEach(function(el){
-      el.style.display = isAdmin ? '' : 'none';
-    });
+  // mode bar — ซ่อนปุ่มเพิ่มจุดและย้ายสำหรับ guest
+  var mbA = document.getElementById('mbA');
+  var mbM = document.getElementById('mbM');
+  if(mbA) mbA.style.display = show;
+  if(mbM) mbM.style.display = show;
+
+  // sidebar — ซ่อนปุ่มแก้ชื่อ/ลบ อาคาร
+  ['btnRenB','btnDelB'].forEach(function(id){
+    var el=document.getElementById(id);
+    if(el) el.style.display = show;
   });
 
-  // ปุ่ม แก้ชื่อ/ลบ ในรายการชั้น
+  // ซ่อนปุ่มเพิ่มชั้น
+  var addFloorBtn = document.querySelector('.add-floor-btn');
+  if(addFloorBtn) addFloorBtn.style.display = show;
+
+  // ซ่อนปุ่มลบ/แก้ชั้นใน floor list
   document.querySelectorAll('.fi-del, .fi-edit').forEach(function(el){
-    el.style.display = isAdmin ? '' : 'none';
+    el.style.display = show;
   });
 
-  // dropdown อาคาร — guest ดูได้แต่ปุ่มแก้ไขซ่อน
-  var mrow = document.querySelector('#cddB + .mrow') || document.querySelector('.mrow');
-  // ซ่อน mrow ทั้งหมดของ sidebar สำหรับ guest
-  document.querySelectorAll('.sb-scroll .mrow').forEach(function(el){
-    el.style.display = isAdmin ? 'flex' : 'none';
-  });
+  // ซ่อน right panel ปุ่ม save/del
+  var rpft = document.querySelector('.rp-ft');
+  if(rpft) rpft.style.display = isAdmin ? 'flex' : 'none';
 
-  // right panel — guest ไม่เห็น panel เลย
-  if(!isAdmin){
-    closePanel();
-    document.getElementById('rpanel').style.display='none';
-  }
+  // ซ่อนปุ่มแก้ไขใน popup
+  var pbEdit = document.querySelector('.pb-edit');
+  if(pbEdit) pbEdit.style.display = show;
 
-  // reset mode ถ้า guest อยู่ใน add/move
-  if(!isAdmin && (appMode==='add'||appMode==='move')){
+  // ถ้า guest อยู่ในโหมด add/move → reset เป็น view
+  if(!isAdmin && appMode && (appMode==='add'||appMode==='move')) {
     setMode('view');
   }
-}
-
-/* ── LOGIN ── */
-window.fbLogin = function() {
-  var em = document.getElementById('loginEmail').value.trim();
-  var pw = document.getElementById('loginPass').value;
-  if(!em||!pw){flashFB('กรุณากรอก Email และ Password','#ef5350');return;}
-  signInWithEmailAndPassword(auth, em, pw)
-    .then(function(){ document.getElementById('loginModal').classList.remove('show'); })
-    .catch(function(e){ flashFB('Login ไม่สำเร็จ: '+e.message,'#ef5350'); });
 };
 window.fbLogout = function() {
   signOut(auth).then(function(){ flashFB('ออกจากระบบแล้ว'); });
