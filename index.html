@@ -635,27 +635,30 @@ function renderFloorList(){
       '<span class="fi-name">'+f+'</span>'+
       (dotCount?'<span class="dot-badge">'+dotCount+'</span>':'')+
       adminBtns;
-    item.querySelector('.fi-edit').onclick=function(e){
-      e.stopPropagation();
-      showImo('✏️','แก้ชื่อชั้น','ชื่อใหม่','',f,function(n){
-        if(!n||n===f) return;
-        if(DB.buildings[curB].floors[n]){flash('มีชื่อนี้แล้ว','#ef5350');return;}
-        DB.buildings[curB].floors[n]=DB.buildings[curB].floors[f];
-        delete DB.buildings[curB].floors[f];
-        if(curF===f) curF=n;
-        renderFloorList(); updateUI();
-        flash('✅ เปลี่ยนชื่อชั้นเป็น "'+n+'"');
-      });
-    };
-    item.querySelector('.fi-del').onclick=function(e){
-      e.stopPropagation();
-      showCfm('ลบชั้น "'+f+'" และจุดทั้งหมด ใช่ไหม?',function(){
-        delete DB.buildings[curB].floors[f];
-        if(curF===f){curF='';clearDots();closePanel();closePopup();}
-        renderFloorList(); updateUI();
-        flash('🗑 ลบชั้นแล้ว');
-      });
-    };
+    // attach events เฉพาะ admin เท่านั้น
+    if(window._isAdmin){
+      item.querySelector('.fi-edit').onclick=function(e){
+        e.stopPropagation();
+        showImo('✏️','แก้ชื่อชั้น','ชื่อใหม่','',f,function(n){
+          if(!n||n===f) return;
+          if(DB.buildings[curB].floors[n]){flash('มีชื่อนี้แล้ว','#ef5350');return;}
+          DB.buildings[curB].floors[n]=DB.buildings[curB].floors[f];
+          delete DB.buildings[curB].floors[f];
+          if(curF===f) curF=n;
+          renderFloorList(); updateUI();
+          flash('✅ เปลี่ยนชื่อชั้นเป็น "'+n+'"');
+        });
+      };
+      item.querySelector('.fi-del').onclick=function(e){
+        e.stopPropagation();
+        showCfm('ลบชั้น "'+f+'" และจุดทั้งหมด ใช่ไหม?',function(){
+          delete DB.buildings[curB].floors[f];
+          if(curF===f){curF='';clearDots();closePanel();closePopup();}
+          renderFloorList(); updateUI();
+          flash('🗑 ลบชั้นแล้ว');
+        });
+      };
+    } // end admin-only events
     item.addEventListener('click',function(){
       curF=f; clearDots(); closePanel(); closePopup();
       renderFloorList(); loadFloorView(); updateUI();
@@ -1345,6 +1348,7 @@ function flashFB(msg,c){
   el.textContent=msg; el.style.color=c||'rgba(255,255,255,.95)';
   el.classList.add('show'); setTimeout(function(){el.classList.remove('show');},3000);
 }
+window.flashFB = flashFB;
 
 /* ── START ── */
 fbStartListen();
