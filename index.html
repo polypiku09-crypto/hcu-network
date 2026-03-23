@@ -731,7 +731,12 @@ document.getElementById('mapWrap').addEventListener('click',function(e){
   var rip=document.createElement('div');
   rip.style.cssText='position:absolute;left:'+lp+'%;top:'+tp+'%;width:22px;height:22px;border-radius:50%;background:rgba(198,40,40,.3);transform:translate(-50%,-50%);pointer-events:none;z-index:50;animation:ripOut .5s ease-out forwards';
   this.appendChild(rip); setTimeout(function(){rip.remove();},600);
-  tempDot={id:'',room:'',brand:'',ip:'',photo:'',note:'',sig:3,color:dotColor,size:dotSize,left:lp,top:tp};
+  // สร้าง object ใหม่ทุกครั้ง ห้าม share reference
+  tempDot={id:'',room:'',brand:'',ip:'',photo:'',note:'',sig:3,
+    color:dotColor,size:dotSize,
+    left:parseFloat(lp.toFixed(2)),
+    top:parseFloat(tp.toFixed(2))};
+  currentPhoto='';
   isNew=true; curDotId=null;
   openPanel(tempDot);
 });
@@ -916,18 +921,23 @@ function saveDot(){
     var fd0=getFloor();
     if(fd0&&fd0.dots&&fd0.dots[curDotId]) photo=fd0.dots[curDotId].photo||'';
   }
-  var dot={id:id,room:document.getElementById('fRoom').value.trim(),
-    brand:document.getElementById('fBrand').value.trim(),ip:document.getElementById('fIp').value.trim(),
+  var dot={
+    id:id,
+    room:document.getElementById('fRoom').value.trim(),
+    brand:document.getElementById('fBrand').value.trim(),
+    ip:document.getElementById('fIp').value.trim(),
     note:document.getElementById('fNote').value.trim(),
-    sig:dotSig,color:dotColor,size:dotSize,photo:photo,
-    left:tempDot?tempDot.left:50,top:tempDot?tempDot.top:50};
+    sig:dotSig, color:dotColor, size:dotSize, photo:photo,
+    // ใช้ค่าที่ freeze ไว้ตั้งแต่ตอนคลิก ไม่ให้ถูก overwrite
+    left: tempDot ? parseFloat((tempDot.left).toFixed(2)) : 50,
+    top:  tempDot ? parseFloat((tempDot.top).toFixed(2))  : 50
+  };
   var fd=getFloor(); if(!fd){flash('ไม่พบข้อมูลชั้น','#ef5350');return;}
   if(!fd.dots) fd.dots={};
   if(!isNew&&curDotId&&curDotId!==id){delete fd.dots[curDotId];var old=document.getElementById('hs_'+sid(curDotId));if(old)old.remove();}
-  // อัปเดต object เดิม in-place เพื่อให้ทุก reference ตามทัน
-  if(!fd.dots[id]) fd.dots[id]={};
-  var existing=fd.dots[id];
-  Object.keys(dot).forEach(function(k){existing[k]=dot[k];});
+  // เขียน object ใหม่ทุกครั้ง ป้องกัน reference ปนกัน
+  fd.dots[id] = dot;
+  var existing = fd.dots[id];
   curDotId=id; isNew=false; tempDot=existing;
   renderDot(existing);
   document.getElementById('rpTitle').textContent=id;
