@@ -964,6 +964,9 @@ function saveDot(){
   fd.dots[id] = dot;
   var existing = fd.dots[id];
   curDotId=id; isNew=false; tempDot=existing;
+  // re-render ทุกจุดในชั้นนี้ใหม่ทั้งหมด เพื่อป้องกันจุดหาย
+  clearDots();
+  Object.values(fd.dots).forEach(renderDot);
   renderDot(existing);
   document.getElementById('rpTitle').textContent=id;
   document.querySelectorAll('.hotspot').forEach(function(h){h.classList.remove('sel');});
@@ -1306,8 +1309,10 @@ window.fbStartListen = function() {
         if(el) el.remove();
       } else {
         DB.buildings[d.building].floors[d.floor].dots[d.id]=d;
-        // re-render if on same floor
-        if(d.building===curB && d.floor===curF) {
+        // re-render if on same floor — ใช้ getCurB/getCurF เพื่อให้ได้ค่าล่าสุด
+        var _curB = window.getCurB ? window.getCurB() : curB;
+        var _curF = window.getCurF ? window.getCurF() : curF;
+        if(d.building===_curB && d.floor===_curF) {
           if(typeof renderDot==='function') renderDot(d);
         }
       }
@@ -1318,8 +1323,9 @@ window.fbStartListen = function() {
       var _bkeys = Object.keys(DB.buildings);
       var _curB = window.getCurB ? window.getCurB() : '';
       if(_bkeys.length && !_curB){
-        if(window.setCurB) window.setCurB(_bkeys[0]);
-        var _fkeys = Object.keys(DB.buildings[_bkeys[0]].floors||{});
+        var _firstB = _bkeys[0];
+        if(window.setCurB) window.setCurB(_firstB);
+        var _fkeys = Object.keys(DB.buildings[_firstB].floors||{});
         if(_fkeys.length && window.setCurF) window.setCurF(_fkeys[0]);
         if(typeof rebuildCddB==='function') rebuildCddB();
         if(typeof renderFloorList==='function') renderFloorList();
