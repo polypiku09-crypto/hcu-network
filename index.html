@@ -133,8 +133,8 @@ header h1{font-size:1rem;font-weight:700;color:white;}
 @keyframes ripOut{to{transform:translate(-50%,-50%) scale(3);opacity:0;}}
 
 /* ── POPUP ── */
-.popup{position:fixed;background:white;border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,.3);width:282px;z-index:200;overflow:hidden;border:2px solid var(--yel);display:none;}
-.pop-hd{background:var(--red);color:white;padding:10px 13px;display:flex;align-items:center;gap:7px;}
+.popup{position:fixed;background:white;border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,.3);width:282px;z-index:200;overflow:hidden;border:2px solid var(--yel);display:none;cursor:default;}
+.pop-hd{background:var(--red);color:white;padding:10px 13px;display:flex;align-items:center;gap:7px;cursor:move;user-select:none;}
 .pop-hd .ph{font-size:.9rem;font-weight:700;flex:1;}
 .pop-x{background:none;border:none;color:white;font-size:1.1rem;cursor:pointer;line-height:1;}
 .pop-body{padding:11px 13px;}
@@ -807,12 +807,37 @@ function showPopup(dot,ev){
   var p=document.getElementById('popup'); p.style.display='block';
   // ซ่อนปุ่มแก้ไขสำหรับ guest
   document.querySelector('.pb-edit').style.display = window._isAdmin ? '' : 'none';
-  var mr=document.getElementById('mapWrap').getBoundingClientRect();
-  var px=mr.left+(dot.left/100)*mr.width, py=mr.top+(dot.top/100)*mr.height;
-  p.style.left=Math.max(10,Math.min(px+22,window.innerWidth-290))+'px';
-  p.style.top=Math.max(10,Math.min(py-20,window.innerHeight-370))+'px';
+  // ใช้ click position โดยตรง ไม่ขึ้นกับ scroll
+  var pw=285, ph=370;
+  var cx=ev?ev.clientX:window.innerWidth/2;
+  var cy=ev?ev.clientY:window.innerHeight/2;
+  var left=cx+16, top=cy-20;
+  if(left+pw>window.innerWidth-10)  left=cx-pw-16;
+  if(top+ph >window.innerHeight-10) top=window.innerHeight-ph-10;
+  if(left<10) left=10;
+  if(top<10)  top=10;
+  p.style.left=left+'px'; p.style.top=top+'px';
 }
 function closePopup(){document.getElementById('popup').style.display='none';popDotId=null;}
+
+// ── POPUP DRAG ──
+(function(){
+  var _pop=null,_drag=false,_sx=0,_sy=0,_sl=0,_st=0;
+  document.addEventListener('mousedown',function(e){
+    var hd=e.target.closest('.pop-hd');
+    if(!hd) return;
+    _pop=document.getElementById('popup');
+    _drag=true; _sx=e.clientX; _sy=e.clientY;
+    _sl=parseInt(_pop.style.left)||0; _st=parseInt(_pop.style.top)||0;
+    e.preventDefault();
+  });
+  document.addEventListener('mousemove',function(e){
+    if(!_drag||!_pop) return;
+    _pop.style.left=Math.max(0,Math.min(window.innerWidth-285,_sl+e.clientX-_sx))+'px';
+    _pop.style.top=Math.max(0,Math.min(window.innerHeight-100,_st+e.clientY-_sy))+'px';
+  });
+  document.addEventListener('mouseup',function(){_drag=false;_pop=null;});
+})();
 function editFromPopup(){
   if(!popDotId) return;
   var fd=getFloor(); if(!fd) return;
