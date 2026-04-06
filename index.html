@@ -281,10 +281,20 @@ input[type=color]{width:24px;height:21px;border:1.5px solid var(--bd);border-rad
       <div style="font-size:.8rem;color:var(--sub);padding:4px 0;">จำนวน: <span id="dotCount" style="font-weight:700;color:var(--red)">0</span> จุด</div>
     </div>
 
-
+    <!-- LEGEND -->
+    <div class="sec-t" style="margin-top:14px">🔵 สัญลักษณ์</div>
+    <div class="leg-item"><div class="led on"></div>ออนไลน์</div>
+    <div class="leg-item"><div class="led off"></div>ออฟไลน์</div>
+    <div class="leg-item"><div class="led prb"></div>มีปัญหา</div>
 
   </div>
 
+  <!-- SAVE / LOAD BUTTONS -->
+  <div class="sb-bot">
+    <button class="bb-s" onclick="saveToFile()">💾 Export</button>
+    <button class="bb-l" onclick="document.getElementById('loadFileBtn').click()">📂 Import</button>
+    <input type="file" id="loadFileBtn" accept=".json" style="display:none" onchange="loadFile(event)"/>
+  </div>
 
 </div>
 
