@@ -841,8 +841,14 @@ document.addEventListener('mousemove',function(e){
   dragging.dot.left=parseFloat(lp.toFixed(2)); dragging.dot.top=parseFloat(tp.toFixed(2));
   dragging.el.style.left=lp+'%'; dragging.el.style.top=tp+'%';
 });
-document.addEventListener('mouseup',function(){dragging=null;});
-
+document.addEventListener('mouseup',function(){
+  if(dragging) {
+    if(typeof fbSaveDot === 'function' && window._isAdmin) {
+      fbSaveDot(curB, curF, dragging.dot);
+    }
+    dragging = null;
+  }
+});
 /* ── POPUP ───────────────────────────────── */
 function showPopup(dot,ev){
   popDotId=dot.id;
