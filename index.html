@@ -962,18 +962,16 @@ function saveDot(){
   if(!isNew&&curDotId&&curDotId!==id){delete fd.dots[curDotId];var old=document.getElementById('hs_'+sid(curDotId));if(old)old.remove();}
   // เขียน object ใหม่ทุกครั้ง ป้องกัน reference ปนกัน
   fd.dots[id] = dot;
-  var existing = fd.dots[id];
-  curDotId=id; isNew=false; tempDot=existing;
+  curDotId=id; isNew=false; tempDot=dot;
   // re-render ทุกจุดในชั้นนี้ใหม่ทั้งหมด เพื่อป้องกันจุดหาย
   clearDots();
   Object.values(fd.dots).forEach(renderDot);
-  renderDot(existing);
   document.getElementById('rpTitle').textContent=id;
   document.querySelectorAll('.hotspot').forEach(function(h){h.classList.remove('sel');});
   var he=document.getElementById('hs_'+sid(id)); if(he) he.classList.add('sel');
   updateUI();
   // ซิงค์ขึ้น Firebase
-  if(typeof fbSaveDot==='function') fbSaveDot(curB, curF, existing);
+  if(typeof fbSaveDot==='function') fbSaveDot(curB, curF, dot);
   if(typeof fbSaveStructure==='function') fbSaveStructure();
   flash('💾 บันทึกจุด "'+id+'" แล้ว');
 }
