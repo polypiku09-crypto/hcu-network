@@ -447,6 +447,7 @@ input[type=color]{width:24px;height:21px;border:1.5px solid var(--bd);border-rad
 var DB={buildings:{}};
 var curB='',curF='';
 var curDotId=null,tempDot=null,isNew=false;
+var pendingLeft=50,pendingTop=50; // freeze position ตอนคลิก map แยกต่างหาก
 var appMode='view',dragging=null,dOff={x:0,y:0};
 // expose globals for Firebase module
 window.DB=DB; window.getCurB=function(){return curB;}; window.getCurF=function(){return curF;};
@@ -731,14 +732,15 @@ document.getElementById('mapWrap').addEventListener('click',function(e){
   var rip=document.createElement('div');
   rip.style.cssText='position:absolute;left:'+lp+'%;top:'+tp+'%;width:22px;height:22px;border-radius:50%;background:rgba(198,40,40,.3);transform:translate(-50%,-50%);pointer-events:none;z-index:50;animation:ripOut .5s ease-out forwards';
   this.appendChild(rip); setTimeout(function(){rip.remove();},600);
-  // สร้าง object ใหม่ทุกครั้ง ห้าม share reference
-  tempDot={id:'',room:'',brand:'',ip:'',photo:'',note:'',sig:3,
+  // freeze position ไว้ใน pendingLeft/pendingTop ป้องกัน openPanel overwrite
+  pendingLeft=parseFloat(lp.toFixed(2));
+  pendingTop=parseFloat(tp.toFixed(2));
+  var newDot={id:'',room:'',brand:'',ip:'',photo:'',note:'',sig:3,
     color:dotColor,size:dotSize,
-    left:parseFloat(lp.toFixed(2)),
-    top:parseFloat(tp.toFixed(2))};
+    left:pendingLeft, top:pendingTop};
   currentPhoto='';
   isNew=true; curDotId=null;
-  openPanel(tempDot);
+  openPanel(newDot);
 });
 
 /* ── RENDER DOT ──────────────────────────── */
@@ -854,6 +856,8 @@ function repFromPopup(){
 
 /* ── PANEL ───────────────────────────────── */
 function openPanel(dot){
+  // copy position เข้า pending เฉพาะตอนเปิดจุดที่มีอยู่แล้ว (ไม่ใช่จุดใหม่จาก click map)
+  if(dot.id){pendingLeft=dot.left||50; pendingTop=dot.top||50;}
   tempDot=dot;
   currentPhoto=dot.photo||'';
   var fd=getFloor(); isNew=!(dot.id&&fd&&fd.dots&&fd.dots[dot.id]); curDotId=dot.id||null;
@@ -953,12 +957,15 @@ function saveDot(){
     ip:document.getElementById('fIp').value.trim(),
     note:document.getElementById('fNote').value.trim(),
     sig:dotSig, color:dotColor, size:dotSize, photo:photo,
-    // ใช้ค่าที่ freeze ไว้ตั้งแต่ตอนคลิก ไม่ให้ถูก overwrite
-    left: tempDot ? parseFloat((tempDot.left).toFixed(2)) : 50,
-    top:  tempDot ? parseFloat((tempDot.top).toFixed(2))  : 50
+    // ใช้ pendingLeft/pendingTop สำหรับจุดใหม่ ใช้ tempDot สำหรับจุดที่แก้ไข
+    left: isNew ? pendingLeft : (tempDot ? parseFloat((tempDot.left).toFixed(2)) : 50),
+    top:  isNew ? pendingTop  : (tempDot ? parseFloat((tempDot.top).toFixed(2))  : 50)
   };
   var fd=getFloor(); if(!fd){flash('ไม่พบข้อมูลชั้น','#ef5350');return;}
   if(!fd.dots) fd.dots={};
+  // ถ้า id ซ้ำกับจุดอื่น (ไม่ใช่ตัวเอง) ให้แจ้งเตือนและหยุด
+  if(isNew && fd.dots[id]){flash('มีจุด "'+id+'" อยู่แล้ว กรุณาใช้ชื่ออื่น','#ef5350');return;}
+  // ถ้าแก้ไขแล้ว id เปลี่ยน ให้ลบ key เก่าออก
   if(!isNew&&curDotId&&curDotId!==id){delete fd.dots[curDotId];var old=document.getElementById('hs_'+sid(curDotId));if(old)old.remove();}
   // เขียน object ใหม่ทุกครั้ง ป้องกัน reference ปนกัน
   fd.dots[id] = dot;
