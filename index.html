@@ -279,13 +279,9 @@ input[type=color]{width:24px;height:21px;border:1.5px solid var(--bd);border-rad
     <div id="dotSection" style="display:none">
       <div class="sec-t" style="margin-top:14px">📍 จุด Router</div>
       <div style="font-size:.8rem;color:var(--sub);padding:4px 0;">จำนวน: <span id="dotCount" style="font-weight:700;color:var(--red)">0</span> จุด</div>
+      <div id="dotList" style="display:flex;flex-direction:column;gap:3px;margin-top:6px;"></div>
     </div>
 
-    <!-- LEGEND -->
-    <div class="sec-t" style="margin-top:14px">🔵 สัญลักษณ์</div>
-    <div class="leg-item"><div class="led on"></div>ออนไลน์</div>
-    <div class="leg-item"><div class="led off"></div>ออฟไลน์</div>
-    <div class="leg-item"><div class="led prb"></div>มีปัญหา</div>
 
   </div>
 
@@ -585,10 +581,54 @@ function updateUI(){
   document.getElementById('dotSection').style.display=hasImg?'block':'none';
   document.getElementById('mapSt').textContent=hasImg?'✅ มีรูปแผนผัง':'ยังไม่มีรูป';
   document.getElementById('dotCount').textContent=dots.length;
+  renderDotList(dots);
 
   // building buttons
   setDisabled('btnRenB',!hasB);
   setDisabled('btnDelB',!hasB);
+}
+
+/* ── DOT LIST IN SIDEBAR ─────────────────── */
+function renderDotList(dots){
+  var el=document.getElementById('dotList'); if(!el) return;
+  el.innerHTML='';
+  if(!dots||!dots.length) return;
+  dots.slice().sort(function(a,b){return (a.id||'').localeCompare(b.id||'');}).forEach(function(dot){
+    var row=document.createElement('div');
+    row.style.cssText='display:flex;align-items:center;gap:6px;padding:4px 6px;background:white;border:1.5px solid var(--yel);border-radius:6px;cursor:pointer;font-size:.75rem;font-weight:600;transition:background .15s;';
+    row.onmouseover=function(){this.style.background='var(--yel-l)';}
+    row.onmouseout=function(){this.style.background='white';}
+    var dot2=document.createElement('div');
+    dot2.style.cssText='width:10px;height:10px;border-radius:50%;flex-shrink:0;background:'+(dot.color||'#c62828')+';border:2px solid white;box-shadow:0 1px 4px rgba(0,0,0,.25);';
+    var lbl=document.createElement('span');
+    lbl.textContent=dot.id||'?';
+    lbl.style.flex='1';
+    var pos=document.createElement('span');
+    pos.textContent='('+Math.round(dot.left)+'%,'+Math.round(dot.top)+'%)';
+    pos.style.cssText='font-size:.65rem;color:var(--sub);font-weight:400;';
+    row.appendChild(dot2); row.appendChild(lbl); row.appendChild(pos);
+    row.onclick=function(){
+      setMode('view');
+      var fd=getFloor(); if(!fd) return;
+      var latest=fd.dots&&fd.dots[dot.id]?fd.dots[dot.id]:dot;
+      // scroll map to dot
+      var mw=document.getElementById('mapWrap');
+      if(mw){
+        var scrollX=latest.left/100*mw.offsetWidth - window.innerWidth/2;
+        var scrollY=latest.top/100*mw.offsetHeight - window.innerHeight/2;
+        mw.closest('.map-area').scrollTo({left:Math.max(0,scrollX),top:Math.max(0,scrollY),behavior:'smooth'});
+      }
+      // highlight
+      document.querySelectorAll('.hotspot').forEach(function(h){h.classList.remove('sel');});
+      var he=document.getElementById('hs_'+sid(dot.id||''));
+      if(he){he.classList.add('sel');he.querySelector('.hdot').style.transform='scale(1.5)';}
+      setTimeout(function(){
+        var he2=document.getElementById('hs_'+sid(dot.id||''));
+        if(he2) he2.querySelector('.hdot').style.transform='';
+      },1500);
+    };
+    el.appendChild(row);
+  });
 }
 function setDisabled(id,dis){
   var el=document.getElementById(id);
